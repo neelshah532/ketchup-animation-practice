@@ -1,31 +1,29 @@
 import { useState, useEffect } from "react";
 
-const quotes = [
-  "Out of Heinz?",
-  "Craving ketchup?",
-  "Pour it on!",
-  "Let’s ketchup!"
-];
+interface AnimatedTextProps {
+  quotes: string[];
+  onComplete: () => void;
+}
 
-const AnimatedText = ({ onComplete }: { onComplete: () => void }) => {
+const AnimatedText = ({ quotes, onComplete }: AnimatedTextProps) => {
   const [index, setIndex] = useState(0);
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      setIndex((prev) => (prev + 1) % quotes.length);
-    }, 4000);
-
-    if (index === quotes.length - 1) {
-      setTimeout(() => onComplete(), 4000); // Show Start button after last quote
+    if (index < quotes.length - 1) {
+      const timer = setTimeout(() => {
+        setIndex((prev) => prev + 1);
+      }, 1800);
+      return () => clearTimeout(timer);
+    } else {
+      const showButtonTimer = setTimeout(() => onComplete(), 1500);
+      return () => clearTimeout(showButtonTimer);
     }
-
-    return () => clearInterval(interval);
-  }, [index, onComplete]);
+  }, [index, quotes.length, onComplete]);
 
   return (
-    <h2 className="text-center text-white text-lg font-semibold mt-8 transition-opacity duration-500">
+    <p className="animated-text">
       {quotes[index]}
-    </h2>
+    </p>
   );
 };
 

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import bottle from "../assets/group-6.png";
 import wave from "../assets/Subtract.png";
 import header from "../assets/layer-2.png";
@@ -7,7 +7,7 @@ import loaderImage2 from "../assets/loader-image-2.png";
 import loaderImage3 from "../assets/loader-image-3.png";
 import bottleHandeHolding from "../assets/start-hande-holding.png";
 import "../styles/Animation.css";
-import AudioVisualizer from "./AudioVisualizer";
+import AnimatedText from "./AnimatedText";
 
 const texts = [
   "Out of Heinz?",
@@ -36,14 +36,52 @@ const KetchupBottle = () => {
   });
   const [currentAfterStartTextIndex, setCurrentAfterStartTextIndex] = useState(0);
   const [currentBottleImageIndex, setCurrentBottleImageIndex] = useState(0);
-  const [isRecording, setIsRecording] = useState(false);
+  const [showFinalText, setShowFinalText] = useState(false);
+  const [showCouponDiv, setShowCouponDiv] = useState(false);
+  const [randomPercentage, setRandomPercentage] = useState(0);
+  const [translateY, setTranslateY] = useState(0);
 
-  const [microphoneWarning, setMicrophoneWarning] = useState(false);
-  const micStreamRef = useRef(null);
-  const loadingTimerRef = useRef(null);
-  const recordingTimerRef = useRef(null);
+  useEffect(() => {
+    const randomPercentage = Math.floor(Math.random() * (100 - 5 + 1)) + 5; // Random between 5% and 100%
+    setRandomPercentage(randomPercentage);
 
-//  this useEffect fot the text change before the start button
+    // Mapping percentage to translateY values (higher percentage moves the element lower)
+    const newTranslateY = ((randomPercentage / 100) * 100); // Adjust multiplier as needed
+    setTranslateY(newTranslateY);
+  }, []);
+  
+  
+  // const [isRecording, setIsRecording] = useState(false);
+
+  // const [microphoneWarning, setMicrophoneWarning] = useState(false);
+  // const micStreamRef = useRef(null);
+  // const loadingTimerRef = useRef(null);
+  // const recordingTimerRef = useRef(null);
+  
+  // In KetchupBottle.tsx, add this state to track random percentage
+  const afterCompleteProgress = `Seems like you've only ${randomPercentage}% Heinz left.`;
+  
+
+  // In the useEffect where you handle loadingState.complete
+  useEffect(() => {
+    if (loadingState.complete) {
+      // Generate random percentage between 5% and 25%
+      const newPercentage = Math.floor(Math.random() * 21) + 5;
+      setRandomPercentage(newPercentage);
+      setShowFinalText(true);
+
+      // After 1.5 seconds, hide final text and show coupon div
+      const finalTextTimer = setTimeout(() => {
+        setShowFinalText(false);
+        setShowCouponDiv(true);
+      }, 2000);
+
+      return () => clearTimeout(finalTextTimer);
+    }
+  }, [loadingState.complete]);
+
+
+  //  this useEffect fot the text change before the start button
   useEffect(() => {
     if (currentTextIndex < texts.length - 1) {
       const timer = setTimeout(() => {
@@ -62,50 +100,110 @@ const KetchupBottle = () => {
 
   useEffect(() => {
     if (loadingState.show && !loadingState.complete) {
-      setCurrentAfterStartTextIndex(0); 
+      setCurrentAfterStartTextIndex(0);
       setCurrentBottleImageIndex(0);
-      const totalDuration = 5000; 
-      const intervalTime = totalDuration /( afterStartText.length - 1);
+      const totalDuration = 10000; // Total 10 seconds
 
-      const textInterval = setInterval(() => {
-        setCurrentAfterStartTextIndex((prev) => {
-          if (prev < afterStartText.length - 1) {
-            return prev + 1;
-          } else {
-            clearInterval(textInterval);
-            return prev;
-          }
-        });
-      }, intervalTime);
+      // We need to schedule the first 4 texts evenly across the first 9 seconds
+      // and the "Done" text exactly at 10 seconds (100% progress)
+      const firstFourTextsDuration = 9000;
+      const intervalBetweenFirstFourTexts = firstFourTextsDuration / (afterStartText.length - 2);
+
+      // Schedule the first 4 text changes individually with setTimeout
+      const textTimers: number[] = [];
+      for (let i = 1; i < afterStartText.length - 1; i++) {
+        const timer = setTimeout(() => {
+          console.log(`Setting text index to ${i}`);
+          setCurrentAfterStartTextIndex(i);
+        }, i * intervalBetweenFirstFourTexts);
+        textTimers.push(timer);
+      }
+
+      // Schedule the "Done" text to appear exactly at 100% (after 10 seconds)
+      const doneTextTimer = setTimeout(() => {
+        console.log("Setting text to Done");
+        setCurrentAfterStartTextIndex(afterStartText.length - 1);
+      }, totalDuration);
+      textTimers.push(doneTextTimer);
 
       const imageInterval = setInterval(() => {
         setCurrentBottleImageIndex((prev) => (prev + 1) % bottleImages.length);
       }, 200);
-      
+
+      // Progress should take exactly 10 seconds (totalDuration)
+      const progressStep = 100 / (totalDuration / 100); // Update every 100ms
+      let progressValue = 0;
+
       const progressInterval = setInterval(() => {
-        setLoadingState((prev) => {
-          const newProgress = prev.progress + 2;
-          if (newProgress >= 100) {
-            clearInterval(progressInterval);
-            clearInterval(textInterval);
-            clearInterval(imageInterval);
-            return { ...prev, progress: 100, complete: true };
-          }
-          return { ...prev, progress: newProgress };
-        });
-      }, totalDuration / 50); 
+        progressValue += progressStep;
+        console.log("Progress value:", progressValue);
+
+        if (progressValue >= 100) {
+          clearInterval(progressInterval);
+          setLoadingState(prev => ({ ...prev, progress: 100 }));
+
+          // After 1.5 seconds, mark as complete
+          setTimeout(() => {
+            setLoadingState(prev => ({ ...prev, progress: 100, complete: true }));
+          }, 1500);
+        } else {
+          setLoadingState(prev => ({ ...prev, progress: progressValue }));
+        }
+      }, 100);
 
       return () => {
-        clearInterval(progressInterval);
-        clearInterval(textInterval);
+        textTimers.forEach(timer => clearTimeout(timer));
         clearInterval(imageInterval);
+        clearInterval(progressInterval);
       };
     }
   }, [loadingState.show, loadingState.complete]);
 
+
+  // this useEfect use for handle after the complete the progresss
+  useEffect(() => {
+    if (loadingState.complete) {
+      setShowFinalText(true);
+
+      // After 1.5 seconds, hide final text and show coupon div
+      const finalTextTimer = setTimeout(() => {
+        setShowFinalText(false);
+        setShowCouponDiv(true);
+      }, 2000);
+
+      return () => clearTimeout(finalTextTimer);
+    }
+  }, [loadingState.complete]);
+
+  // Clean up when component unmounts
+  //  useEffect(() => {
+  //   return () => {
+  //     if (micStreamRef.current) {
+  //       micStreamRef.current.getTracks().forEach((track) => track.stop());
+  //     }
+  //     if (loadingTimerRef.current) {
+  //       clearInterval(loadingTimerRef?.current);
+  //     }
+  //     if (recordingTimerRef.current) {
+  //       clearTimeout(recordingTimerRef.current);
+  //     }
+  //   };
+  // }, []);
+
   const handleStartClick = () => {
     console.log("Start clicked: loader and mic flow will begin.");
     setLoadingState({ show: true, progress: 0, complete: false });
+  };
+
+
+  // create a const for copy the code in clipboard
+  const handleCopyCode = () => {
+    navigator.clipboard.writeText("HEINZ50OFF");
+    alert("Coupon code copied 🥳🥳!");
+  };
+
+  const handleTextComplete = () => {
+    setShowStartButton(true);
   };
 
   return (
@@ -113,13 +211,13 @@ const KetchupBottle = () => {
       <div className="header">
         <img src={header} alt="header-icon" />
       </div>
-      {loadingState.show ? (
+      {loadingState.show && !loadingState.complete ? (
         <div className="loader-container">
           <div
             className="circular-progress"
           >
             <svg className="progress-ring" width="100%" height="100%" viewBox="0 0 100 100">
-              <circle className="progress-ring-bg" cx="48" cy="48" r="42"></circle>
+              <circle className="progress-ring-bg" cx="50" cy="50" r="44"></circle>
               <circle
                 className="progress-ring-fill"
                 cx="50"
@@ -131,8 +229,27 @@ const KetchupBottle = () => {
             </svg>
             <div className="progress-inner-circle">
               <img src={bottleImages[currentBottleImageIndex]} alt="Loader" className="loader-image" />
-              < div className="shadow" />  
+              < div className="shadow" />
             </div>
+          </div>
+        </div>
+      ) : loadingState.complete ? (
+        <div className="bottle-container">
+          <div className="bottle-outline">
+            <img src={bottle} alt="completed-bottle" />
+          </div>
+          <div className="bottle-mask">
+            <img src={wave} alt="Bottle Mask" className="subtract" />
+            <div className="dynamic-percentage-container">
+              <div className="dynamic-percentage">
+                  <span>12%</span>
+              </div>
+               <div className="dash-border"></div>
+            </div>
+            <div className="end-circle" style={{ transform: `translate(6%, -${translateY}%)` }}>
+          <div className="end-wave"></div>
+        </div>
+        <div className="hidden-box"style={{ transform: `translateY(${translateY}%)` }} />  {/* this box height is dynamically set, so we have to move the circle animation up */}
           </div>
         </div>
       ) : showStartButton ? (
@@ -162,23 +279,55 @@ const KetchupBottle = () => {
       )}
 
       <div className="text-container">
-      {loadingState.show ? (
-        <div>
-          <div className="audio-visualizer-wrapper">
+        {loadingState.show && !loadingState.complete ? (
+          <div>
+            {/* <div className="audio-visualizer-wrapper">
             <AudioVisualizer 
               isRecording={isRecording} 
               audioStream={micStreamRef.current} 
             />
-        </div>
-          <p className="animated-text">{afterStartText[currentAfterStartTextIndex]}</p>
-        </div>
-        ) : !showStartButton ? (
-          <p className="animated-text">{texts[currentTextIndex]}</p>
-        ) : (
-          <button className="start-button" onClick={handleStartClick}>
-            <span>Start</span>
-          </button>
-        )}
+        </div> */}
+            <p className="animated-text">{afterStartText[currentAfterStartTextIndex]}</p>
+          </div>
+        )
+          : loadingState.complete && showFinalText ? (
+            <p className="animated-text final-text">{afterCompleteProgress}</p>
+          ) : loadingState.complete && showCouponDiv ? (
+            // <div className="coupon-container">
+            //   <div className="coupon-row">
+            //     <div className="coupon-col">
+            //       <p className="coupon-text">Here's your reward for being a loyal Heinz customer:</p>
+            //     </div>
+            //     <div className="coupon-col">
+            //       <div className="coupon-code">
+            //         <span>HEINZ50OFF</span>
+            //         <button onClick={handleCopyCode} className="copy-button">Copy</button>
+            //       </div>
+            //     </div>
+            //     <div className="coupon-col">
+            //       <p className="coupon-subtext">Use this code for 50% off on your next purchase</p>
+            //     </div>
+            //   </div>
+            // </div>
+            <div className="coupon-container">
+              <div className="coupon-row">
+                <span className="animated-text">Here’s a coupon code for you</span>
+              </div>
+              <div className="coupon-code" onClick={handleCopyCode}>
+                <span>OOH12</span>
+              </div>
+              <div className="coupon-col">
+                <span className="coupon-subtext">Use the code now to get your Heinz ketchup in the next 10 mins.</span>
+              </div>
+            </div>
+          )
+            : !showStartButton ? (
+              <AnimatedText quotes={texts} onComplete={handleTextComplete} />
+            ) : (
+              <button className="start-button" onClick={handleStartClick}>
+                <span>Start</span>
+              </button>
+            )}
       </div>
     </div>
   );
