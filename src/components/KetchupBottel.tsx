@@ -39,38 +39,47 @@ const KetchupBottle = () => {
   const [showFinalText, setShowFinalText] = useState(false);
   const [showCouponDiv, setShowCouponDiv] = useState(false);
   const [randomPercentage, setRandomPercentage] = useState(0);
-  const [translateY, setTranslateY] = useState(0);
+  // const [translateY, setTranslateY] = useState(0);
+  const [ketchupPercentage, setKetchupPercentage] = useState(12);
+  const [wavePosition, setWavePosition] = useState(0);
+  const [hiddenBoxHeight, setHiddenBoxHeight] = useState(0);
+
 
   useEffect(() => {
-    const randomPercentage = Math.floor(Math.random() * (100 - 5 + 1)) + 5; // Random between 5% and 100%
-    setRandomPercentage(randomPercentage);
+    // Generate random percentage between 12 and 98
+    const newPercentage = Math.floor(Math.random() * (98 - 12 + 1)) + 12;
+    setKetchupPercentage(newPercentage);
 
-    // Mapping percentage to translateY values (higher percentage moves the element lower)
-    const newTranslateY = ((randomPercentage / 100) * 100); // Adjust multiplier as needed
-    setTranslateY(newTranslateY);
-  }, []);
-  
-  
+    // Calculate how much to move the wave based on percentage
+    // The bottle mask height is 265.73px
+    // We're inverting the percentage (100 - percentage) since lower % means higher position
+    const maxTranslateY = 265.73;
+    const translateY = maxTranslateY * (100 - newPercentage) / 100;
+
+    setWavePosition(translateY);
+
+    // Calculate hidden box height (needs to cover below the wave)
+    // Consider the end-circle height is 98px
+    const hiddenBoxScale = (maxTranslateY - translateY) / 280;
+    setHiddenBoxHeight(hiddenBoxScale);
+  }, [loadingState.complete]);
   // const [isRecording, setIsRecording] = useState(false);
 
   // const [microphoneWarning, setMicrophoneWarning] = useState(false);
   // const micStreamRef = useRef(null);
   // const loadingTimerRef = useRef(null);
   // const recordingTimerRef = useRef(null);
-  
-  // In KetchupBottle.tsx, add this state to track random percentage
+
   const afterCompleteProgress = `Seems like you've only ${randomPercentage}% Heinz left.`;
-  
+
 
   // In the useEffect where you handle loadingState.complete
   useEffect(() => {
     if (loadingState.complete) {
-      // Generate random percentage between 5% and 25%
       const newPercentage = Math.floor(Math.random() * 21) + 5;
       setRandomPercentage(newPercentage);
       setShowFinalText(true);
 
-      // After 1.5 seconds, hide final text and show coupon div
       const finalTextTimer = setTimeout(() => {
         setShowFinalText(false);
         setShowCouponDiv(true);
@@ -242,14 +251,20 @@ const KetchupBottle = () => {
             <img src={wave} alt="Bottle Mask" className="subtract" />
             <div className="dynamic-percentage-container">
               <div className="dynamic-percentage">
-                  <span>12%</span>
+                <span>{ketchupPercentage}%</span>
               </div>
-               <div className="dash-border"></div>
+              <div className="dash-border"></div>
             </div>
-            <div className="end-circle" style={{ transform: `translate(6%, -${translateY}%)` }}>
-          <div className="end-wave"></div>
-        </div>
-        <div className="hidden-box"style={{ transform: `translateY(${translateY}%)` }} />  {/* this box height is dynamically set, so we have to move the circle animation up */}
+            <div
+              className="end-circle"
+              style={{ transform: `translate(0%, -48%) translateY(${wavePosition}px)` }}
+            >
+              <div className="end-wave"></div>
+            </div>
+            <div
+              className="hidden-box"
+              style={{ transform: `scaleY(${hiddenBoxHeight})` }}
+            />
           </div>
         </div>
       ) : showStartButton ? (
@@ -293,22 +308,6 @@ const KetchupBottle = () => {
           : loadingState.complete && showFinalText ? (
             <p className="animated-text final-text">{afterCompleteProgress}</p>
           ) : loadingState.complete && showCouponDiv ? (
-            // <div className="coupon-container">
-            //   <div className="coupon-row">
-            //     <div className="coupon-col">
-            //       <p className="coupon-text">Here's your reward for being a loyal Heinz customer:</p>
-            //     </div>
-            //     <div className="coupon-col">
-            //       <div className="coupon-code">
-            //         <span>HEINZ50OFF</span>
-            //         <button onClick={handleCopyCode} className="copy-button">Copy</button>
-            //       </div>
-            //     </div>
-            //     <div className="coupon-col">
-            //       <p className="coupon-subtext">Use this code for 50% off on your next purchase</p>
-            //     </div>
-            //   </div>
-            // </div>
             <div className="coupon-container">
               <div className="coupon-row">
                 <span className="animated-text">Here’s a coupon code for you</span>
