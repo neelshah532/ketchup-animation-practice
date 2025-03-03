@@ -38,12 +38,12 @@ const KetchupBottle = () => {
   const [currentBottleImageIndex, setCurrentBottleImageIndex] = useState(0);
   const [showFinalText, setShowFinalText] = useState(false);
   const [showCouponDiv, setShowCouponDiv] = useState(false);
-  const [randomPercentage, setRandomPercentage] = useState(0);
+  // const [randomPercentage, setRandomPercentage] = useState(0);
   // const [translateY, setTranslateY] = useState(0);
   const [ketchupPercentage, setKetchupPercentage] = useState(12);
   const [wavePosition, setWavePosition] = useState(0);
   const [hiddenBoxHeight, setHiddenBoxHeight] = useState(0);
-
+  const [percentageTranslateY, setPercentageTranslateY] = useState(0);
 
   useEffect(() => {
     // Generate random percentage between 12 and 98
@@ -62,6 +62,12 @@ const KetchupBottle = () => {
     // Consider the end-circle height is 98px
     const hiddenBoxScale = (maxTranslateY - translateY) / 280;
     setHiddenBoxHeight(hiddenBoxScale);
+
+// Calculate translateY for dynamic-percentage-container
+const percentageTranslateY = (newPercentage / 100) * (98 + 280 + 20);
+setPercentageTranslateY(percentageTranslateY);
+
+
   }, [loadingState.complete]);
   // const [isRecording, setIsRecording] = useState(false);
 
@@ -70,14 +76,12 @@ const KetchupBottle = () => {
   // const loadingTimerRef = useRef(null);
   // const recordingTimerRef = useRef(null);
 
-  const afterCompleteProgress = `Seems like you've only ${randomPercentage}% Heinz left.`;
+  const afterCompleteProgress = `Seems like you've only ${ketchupPercentage}% Heinz left.`;
 
-
-  // In the useEffect where you handle loadingState.complete
+   // In the useEffect where you handle loadingState.complete
   useEffect(() => {
     if (loadingState.complete) {
-      const newPercentage = Math.floor(Math.random() * 21) + 5;
-      setRandomPercentage(newPercentage);
+     
       setShowFinalText(true);
 
       const finalTextTimer = setTimeout(() => {
@@ -249,7 +253,7 @@ const KetchupBottle = () => {
           </div>
           <div className="bottle-mask">
             <img src={wave} alt="Bottle Mask" className="subtract" />
-            <div className="dynamic-percentage-container">
+            <div className="dynamic-percentage-container"  style={{ transform: `translateY(-${percentageTranslateY}px)` }}>
               <div className="dynamic-percentage">
                 <span>{ketchupPercentage}%</span>
               </div>
