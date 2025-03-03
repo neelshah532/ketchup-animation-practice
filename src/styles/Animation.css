@@ -500,12 +500,15 @@ align-items: center;
   margin-bottom: 5px;
   text-align: center;
   width: 100%;
+  z-index: 200;
   /* top: 50%;
   right: -40px;
   transform: translateY(-50%); */
 }
 .dash-border {
-  width: 150px;
+  position: absolute;
+  transform: translate(-20%, -50%);
+  width: 250px;
   height: 0;
   border-top: 2px dashed white;
 }

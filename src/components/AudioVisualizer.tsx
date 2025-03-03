@@ -1,110 +1,111 @@
 import { useEffect, useRef } from 'react';
+import '../styles/AudioVisualizer.css';
 
-const AudioVisualizer = ({ isRecording, audioStream }) => {
-  const canvasRef = useRef(null);
-  const animationRef = useRef(null);
-  const audioContextRef = useRef(null);
-  const analyserRef = useRef(null);
-  const dataArrayRef = useRef(null);
+interface AudioVisualizerProps {
+  isRecording: boolean;
+  audioStream: MediaStream | null;
+}
+
+const AudioVisualizer= ({ isRecording, audioStream }: AudioVisualizerProps) => {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const animationFrameRef = useRef<number | null>(null);
 
   useEffect(() => {
-    if (!isRecording || !audioStream) return;
-
-    // Set up audio context and analyzer
-    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-    audioContextRef.current = audioContext;
-    const analyser = audioContext.createAnalyser();
-    analyserRef.current = analyser;
-    
-    // Configure analyser for optimal visualization
-    analyser.fftSize = 256; // Larger FFT size for more detailed frequency data
-    analyser.smoothingTimeConstant = 0.8; // Smoothing for a more fluid visualization
-    
-    const bufferLength = analyser.frequencyBinCount;
-    const dataArray = new Uint8Array(bufferLength);
-    dataArrayRef.current = dataArray;
-
-    // Connect audio source to analyzer
-    const source = audioContext.createMediaStreamSource(audioStream);
-    source.connect(analyser);
-
-    // Get canvas and context
     const canvas = canvasRef.current;
-    const canvasCtx = canvas.getContext('2d');
-    
-    // Ensure canvas is properly sized
-    canvas.width = canvas.clientWidth * window.devicePixelRatio;
-    canvas.height = canvas.clientHeight * window.devicePixelRatio;
-    
-    // Scale context to match device pixel ratio for crisp rendering
-    canvasCtx.scale(window.devicePixelRatio, window.devicePixelRatio);
+    if (!canvas) return;
 
-    // Drawing function
-    const draw = () => {
-      if (!isRecording) return;
-      
-      animationRef.current = requestAnimationFrame(draw);
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
 
-      // Get frequency data
-      analyser.getByteFrequencyData(dataArray);
+    let analyser: AnalyserNode | null = null;
+    let dataArray: Uint8Array | null = null;
 
-      // Clear canvas
-      canvasCtx.fillStyle = '#982932';
-      canvasCtx.fillRect(0, 0, canvas.width, canvas.height);
+    // Set canvas dimensions with devicePixelRatio for sharper rendering
+    const scale = window.devicePixelRatio || 1;
+    canvas.width = canvas.clientWidth * scale;
+    canvas.height = canvas.clientHeight * scale;
+    ctx.scale(scale, scale);
 
-      // Calculate dimensions for bars
-      const barCount = 30; // Number of bars
-      const barWidth = 4;  // Width of each bar
-      const barSpacing = 2; // Space between bars
-      const barMaxHeight = canvas.height * 0.7; // Max height of bars
-      
-      // Calculate starting X position to center the visualization
-      const totalWidth = barCount * (barWidth + barSpacing) - barSpacing;
-      let x = (canvas.width / window.devicePixelRatio - totalWidth) / 2;
-      
-      // Draw the bars
-      canvasCtx.fillStyle = '#61131a'; // Color of the bars
+    // Background color matching the image
+    ctx.fillStyle = '#B22234'; // Deep red background color
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      for (let i = 0; i < barCount; i++) {
-        // Sample from the frequency data
-        const dataIndex = Math.floor(i * (bufferLength / barCount));
-        const amplitude = dataArray[dataIndex] / 255.0;
-        
-        // Calculate bar height
-        const barHeight = amplitude * barMaxHeight;
-        
-        // Draw the bar
-        canvasCtx.fillRect(x, (canvas.height / window.devicePixelRatio - barHeight) / 2, barWidth, barHeight);
-        
-        x += barWidth + barSpacing;
-      }
+    const setupAudioAnalyser = () => {
+      if (!audioStream) return;
+
+      const audioContext = new (window.AudioContext || window.AudioContext)();
+      const source = audioContext.createMediaStreamSource(audioStream);
+      analyser = audioContext.createAnalyser();
+      analyser.fftSize = 128; // Lower for fewer bars
+      source.connect(analyser);
+
+      const bufferLength = analyser.frequencyBinCount;
+      dataArray = new Uint8Array(bufferLength);
+
+      const draw = () => {
+        animationFrameRef.current = requestAnimationFrame(draw);
+
+        // Get frequency data if recording, otherwise generate visualization
+        if (isRecording && analyser && dataArray) {
+          analyser.getByteFrequencyData(dataArray);
+        }
+
+        // Clear and redraw background
+        ctx.fillStyle = '#982932'; // Deep red background
+        ctx.fillRect(0, 0, canvas.width / scale, canvas.height / scale);
+
+        // Set up bar properties
+        const barWidth = 3;
+        const barGap = 2;
+        const numBars = Math.floor((canvas.width / scale) / (barWidth + barGap));
+        const centerY = (canvas.height / scale) / 2;
+
+        for (let i = 0; i < numBars; i++) {
+          let barHeight;
+
+          if (isRecording && analyser && dataArray) {
+            // Use real audio data
+            const dataIndex = Math.floor((i / numBars) * dataArray.length);
+            barHeight = (dataArray[dataIndex] / 255) * (canvas.height / scale) * 0.7;
+            // Set minimum height
+            barHeight = Math.max(barHeight, 5);
+          } else {
+            // Generate wave-like pattern similar to the image
+            const time = Date.now() / 1000;
+            // Multiple sine waves with different frequencies for a more natural look
+            const wave1 = Math.sin(i * 0.2 + time * 2) * 0.5;
+            const wave2 = Math.sin(i * 0.1 + time * 1.5) * 0.3;
+            const wave3 = Math.sin(i * 0.05 + time) * 0.2;
+            const combinedWave = (wave1 + wave2 + wave3) / 1;
+
+            barHeight = Math.abs(combinedWave) * (canvas.height / scale) * 0.6;
+            // Set minimum height
+            barHeight = Math.max(barHeight, 5);
+          }
+
+          // Calculate x position for each bar
+          const x = i * (barWidth + barGap);
+
+          // Draw bar (vertical line)
+          ctx.fillStyle = '#61131a'; // Darker red for the bars
+          ctx.fillRect(x, centerY - barHeight / 2, barWidth, barHeight);
+        }
+      };
+
+      draw();
     };
 
-    // Start drawing loop
-    draw();
+    // Start visualization
+    setupAudioAnalyser();
 
-    // Cleanup function
     return () => {
-      if (animationRef.current) {
-        cancelAnimationFrame(animationRef.current);
-      }
-      if (audioContextRef.current) {
-        audioContextRef.current.close();
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
       }
     };
   }, [isRecording, audioStream]);
 
-  return (
-    <canvas 
-      ref={canvasRef} 
-      className="audio-visualizer"
-      style={{ 
-        width: '100%', 
-        height: '100%',
-        backgroundColor: '#982932'
-      }}
-    />
-  );
+  return <canvas ref={canvasRef} className="audio-visualizer" />;
 };
 
 export default AudioVisualizer;

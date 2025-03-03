@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import bottle from "../assets/group-6.png";
 import wave from "../assets/Subtract.png";
 import header from "../assets/layer-2.png";
@@ -8,6 +8,7 @@ import loaderImage3 from "../assets/loader-image-3.png";
 import bottleHandeHolding from "../assets/start-hande-holding.png";
 import "../styles/Animation.css";
 import AnimatedText from "./AnimatedText";
+import AudioVisualizer from "./AudioVisualizer";
 
 const texts = [
   "Out of Heinz?",
@@ -34,16 +35,19 @@ const KetchupBottle = () => {
     progress: 0,
     complete: false,
   });
-  const [currentAfterStartTextIndex, setCurrentAfterStartTextIndex] = useState(0);
-  const [currentBottleImageIndex, setCurrentBottleImageIndex] = useState(0);
-  const [showFinalText, setShowFinalText] = useState(false);
-  const [showCouponDiv, setShowCouponDiv] = useState(false);
-  // const [randomPercentage, setRandomPercentage] = useState(0);
-  // const [translateY, setTranslateY] = useState(0);
-  const [ketchupPercentage, setKetchupPercentage] = useState(12);
-  const [wavePosition, setWavePosition] = useState(0);
-  const [hiddenBoxHeight, setHiddenBoxHeight] = useState(0);
-  const [percentageTranslateY, setPercentageTranslateY] = useState(0);
+  const [currentAfterStartTextIndex, setCurrentAfterStartTextIndex] = useState<number>(0);
+  const [currentBottleImageIndex, setCurrentBottleImageIndex] = useState<number>(0);
+  const [showFinalText, setShowFinalText] = useState<boolean>(false);
+  const [showCouponDiv, setShowCouponDiv] = useState<boolean>(false);
+  const [ketchupPercentage, setKetchupPercentage] = useState<number>(12);
+  const [wavePosition, setWavePosition] = useState<number>(0);
+  const [hiddenBoxHeight, setHiddenBoxHeight] = useState<number>(0);
+  const [percentageTranslateY, setPercentageTranslateY] = useState<number>(0);
+
+  const [isRecording, setIsRecording] = useState<boolean>(false);
+  const micStreamRef = useRef<MediaStream | null>(null);
+  const loadingTimerRef = useRef<number | null>(null);
+  const recordingTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
     // Generate random percentage between 12 and 98
@@ -63,36 +67,12 @@ const KetchupBottle = () => {
     const hiddenBoxScale = (maxTranslateY - translateY) / 280;
     setHiddenBoxHeight(hiddenBoxScale);
 
-// Calculate translateY for dynamic-percentage-container
-const percentageTranslateY = ((newPercentage / 100) * 280) + 40;
-  setPercentageTranslateY(percentageTranslateY);
-
-
+    // Calculate translateY for dynamic-percentage-container
+    const percentageTranslateY = ((newPercentage / 100) * 280) + 80;
+    setPercentageTranslateY(percentageTranslateY);
   }, [loadingState.complete]);
-  // const [isRecording, setIsRecording] = useState(false);
-
-  // const [microphoneWarning, setMicrophoneWarning] = useState(false);
-  // const micStreamRef = useRef(null);
-  // const loadingTimerRef = useRef(null);
-  // const recordingTimerRef = useRef(null);
 
   const afterCompleteProgress = `Seems like you've only ${ketchupPercentage}% Heinz left.`;
-
-   // In the useEffect where you handle loadingState.complete
-  useEffect(() => {
-    if (loadingState.complete) {
-     
-      setShowFinalText(true);
-
-      const finalTextTimer = setTimeout(() => {
-        setShowFinalText(false);
-        setShowCouponDiv(true);
-      }, 2000);
-
-      return () => clearTimeout(finalTextTimer);
-    }
-  }, [loadingState.complete]);
-
 
   //  this useEffect fot the text change before the start button
   useEffect(() => {
@@ -134,7 +114,6 @@ const percentageTranslateY = ((newPercentage / 100) * 280) + 40;
 
       // Schedule the "Done" text to appear exactly at 100% (after 10 seconds)
       const doneTextTimer = setTimeout(() => {
-        console.log("Setting text to Done");
         setCurrentAfterStartTextIndex(afterStartText.length - 1);
       }, totalDuration);
       textTimers.push(doneTextTimer);
@@ -143,13 +122,12 @@ const percentageTranslateY = ((newPercentage / 100) * 280) + 40;
         setCurrentBottleImageIndex((prev) => (prev + 1) % bottleImages.length);
       }, 200);
 
-      // Progress should take exactly 10 seconds (totalDuration)
+      // in my this logic , progress take exactly 10s to complete
       const progressStep = 100 / (totalDuration / 100); // Update every 100ms
       let progressValue = 0;
 
       const progressInterval = setInterval(() => {
         progressValue += progressStep;
-        console.log("Progress value:", progressValue);
 
         if (progressValue >= 100) {
           clearInterval(progressInterval);
@@ -189,25 +167,67 @@ const percentageTranslateY = ((newPercentage / 100) * 280) + 40;
   }, [loadingState.complete]);
 
   // Clean up when component unmounts
-  //  useEffect(() => {
-  //   return () => {
-  //     if (micStreamRef.current) {
-  //       micStreamRef.current.getTracks().forEach((track) => track.stop());
-  //     }
-  //     if (loadingTimerRef.current) {
-  //       clearInterval(loadingTimerRef?.current);
-  //     }
-  //     if (recordingTimerRef.current) {
-  //       clearTimeout(recordingTimerRef.current);
-  //     }
-  //   };
-  // }, []);
+  useEffect(() => {
+    const loadingTimer = loadingTimerRef.current;
+    const recordingTimer = recordingTimerRef.current;
+    const micStream = micStreamRef.current;
 
-  const handleStartClick = () => {
-    console.log("Start clicked: loader and mic flow will begin.");
-    setLoadingState({ show: true, progress: 0, complete: false });
+    return () => {
+      if (micStream) {
+        micStream.getTracks().forEach((track) => track.stop());
+      }
+      if (loadingTimer) {
+        clearInterval(loadingTimer);
+      }
+      if (recordingTimer) {
+        clearTimeout(recordingTimer);
+      }
+    };
+  }, []);
+
+  const requestMicrophoneAccess = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      micStreamRef.current = stream;
+      return true;
+    } catch (error) {
+      console.error("Error accessing microphone:", error);
+      return false;
+    }
   };
 
+  const handleStartClick = async () => {
+    console.log("Start clicked: loader and mic flow will begin.");
+
+    const micPermissionGranted = await requestMicrophoneAccess();
+    
+    setLoadingState({ show: true, progress: 0, complete: false });
+
+    try {
+      // This will trigger the browser's native permission dialog
+      // const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      // micStreamRef.current = stream;
+      // setIsRecording(true);
+      if (micPermissionGranted) {
+        setLoadingState({ show: true, progress: 0, complete: false });
+        setIsRecording(true);
+    
+      // Set a timer to stop recording when loading completes
+      recordingTimerRef.current = setTimeout(() => {
+        if (micStreamRef.current) {
+          micStreamRef.current.getTracks().forEach(track => track.stop());
+          setIsRecording(false);
+        }
+      }, 10000); // Same as your loading duration
+    }
+    else {
+      alert("Microphone access is required to proceed.");
+    }
+    } catch (error) {
+      console.error("Microphone access denied:", error);
+      // Continue with loading even if mic access is denied
+    }
+  };
 
   // create a const for copy the code in clipboard
   const handleCopyCode = () => {
@@ -253,12 +273,7 @@ const percentageTranslateY = ((newPercentage / 100) * 280) + 40;
           </div>
           <div className="bottle-mask">
             <img src={wave} alt="Bottle Mask" className="subtract" />
-            <div className="dynamic-percentage-container"  style={{ transform: `translateY(-${percentageTranslateY}px)` }}>
-              <div className="dynamic-percentage">
-                <span>{ketchupPercentage}%</span>
-              </div>
-              <div className="dash-border"></div>
-            </div>
+
             <div
               className="end-circle"
               style={{ transform: `translate(0%, -48%) translateY(${wavePosition}px)` }}
@@ -269,6 +284,12 @@ const percentageTranslateY = ((newPercentage / 100) * 280) + 40;
               className="hidden-box"
               style={{ transform: `scaleY(${hiddenBoxHeight})` }}
             />
+          </div>
+          <div className="dynamic-percentage-container" style={{ transform: `translateY(-${percentageTranslateY}px)` }}>
+            <div className="dynamic-percentage">
+              <span>{ketchupPercentage}%</span>
+            </div>
+            <div className="dash-border"></div>
           </div>
         </div>
       ) : showStartButton ? (
@@ -300,12 +321,13 @@ const percentageTranslateY = ((newPercentage / 100) * 280) + 40;
       <div className="text-container">
         {loadingState.show && !loadingState.complete ? (
           <div>
-            {/* <div className="audio-visualizer-wrapper">
-            <AudioVisualizer 
-              isRecording={isRecording} 
-              audioStream={micStreamRef.current} 
-            />
-        </div> */}
+            <div >
+              <AudioVisualizer
+                isRecording={isRecording}
+                audioStream={micStreamRef.current}
+              />
+            </div>
+
             <p className="animated-text">{afterStartText[currentAfterStartTextIndex]}</p>
           </div>
         )
