@@ -483,32 +483,31 @@ align-items: center;
 
 .dynamic-percentage-container {
   position: absolute;
-  top: 50%;
-  right: -40px;
-  transform: translateY(-50%);
-  display: flex;
-  align-items: center;
-  z-index: 200;
+  width: 100%;
+  left: 0;
+  bottom: -44px;
+  /* transform: translateX(-50%); */
+  transition: transform 0.5s ease-in-out;
 }
 
-.dynamic-percentage {
-  background-color: #691a20;
+
+.dynamic-percentage{
+  /* position: absolute; */
   color: white;
-  border-radius: 50%;
-  width: 36px;
-  height: 36px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
   font-family: 'Poppins', sans-serif;
   font-weight: 600;
-  font-size: 12px;
+  font-size: 22px;
+  margin-bottom: 5px;
+  text-align: center;
+  width: 100%;
+  /* top: 50%;
+  right: -40px;
+  transform: translateY(-50%); */
 }
-
 .dash-border {
-  width: 30px;
+  width: 150px;
   height: 0;
-  border-top: 2px dashed #691a20;
+  border-top: 2px dashed white;
 }
 
 .hidden-box {

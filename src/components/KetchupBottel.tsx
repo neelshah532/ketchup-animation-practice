@@ -64,8 +64,8 @@ const KetchupBottle = () => {
     setHiddenBoxHeight(hiddenBoxScale);
 
 // Calculate translateY for dynamic-percentage-container
-const percentageTranslateY = (newPercentage / 100) * (98 + 280 + 20);
-setPercentageTranslateY(percentageTranslateY);
+const percentageTranslateY = ((newPercentage / 100) * 280) + 40;
+  setPercentageTranslateY(percentageTranslateY);
 
 
   }, [loadingState.complete]);
